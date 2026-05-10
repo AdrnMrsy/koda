@@ -1,37 +1,42 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "Koda",
+    "slug": "koda",
     "version": "1.0.0",
-
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-
+    "scheme": "koda",
     "experiments": {
       "tsconfigPaths": true
     },
-
-    "plugins": [],
-
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ],
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-
-    "userInterfaceStyle": "light",
-
+    "icon": "./assets/adaptive-icon.png",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#58CC02"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
+      "bundleIdentifier": "com.belo.koda",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.belo.koda",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#58CC02"
+      }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b74a17c8-186d-4829-bc42-8dccdb92be5c"
       }
     }
   }
