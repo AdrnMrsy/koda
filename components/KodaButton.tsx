@@ -9,7 +9,7 @@ interface KodaButtonProps extends PressableProps {
   fullWidth?: boolean;
 }
 
-export function KodaButton({
+export const KodaButton = React.memo(function KodaButton({
   title,
   variant = 'primary',
   size = 'md',
@@ -63,4 +63,4 @@ export function KodaButton({
       </View>
     </Pressable>
   );
-}
+});

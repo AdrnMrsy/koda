@@ -110,12 +110,12 @@ function detectIntent(text: string): Intent {
 
 const KODA_GREETINGS = [
   "Hey there! I'm Koda, your finance buddy! Ask me anything about your spending, or just tell me what you spent today!",
-  "Hi friend! ✨ Ready to talk money? I can check your spending, track your budget, or log a transaction!",
+  "Hi friend! Ready to talk money? I can check your spending, track your budget, or log a transaction!",
   "Kumusta! I'm here to help with your finances. What would you like to know?",
 ];
 
 const KODA_UNKNOWNS = [
-  "Hmm, I'm not sure what you mean 🤔 Try asking things like:\n\n• \"How much did I spend this month?\"\n• \"What's my budget status?\"\n• \"spent 500 on groceries\"\n• \"What's my streak?\"",
+  "Hmm, I'm not sure what you mean. Try asking things like:\n\n• \"How much did I spend this month?\"\n• \"What's my budget status?\"\n• \"spent 500 on groceries\"\n• \"What's my streak?\"",
   "I didn't quite get that! I can help with spending questions, budgets, or logging transactions. Try asking me something specific!",
 ];
 
@@ -133,17 +133,17 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
 
       case 'help': {
         text = "Here's what I can do!\n\n" +
-          "💬 **Ask me about your finances:**\n" +
+          "**Ask me about your finances:**\n" +
           "• \"How much did I spend this month?\"\n" +
           "• \"What's my income this month?\"\n" +
           "• \"Show me today's transactions\"\n" +
           "• \"What's my top spending category?\"\n" +
           "• \"Budget status?\"\n\n" +
-          "📊 **Check your stats:**\n" +
+          "**Check your stats:**\n" +
           "• \"What's my streak?\"\n" +
           "• \"How much XP do I have?\"\n" +
           "• \"What level am I?\"\n\n" +
-          "💰 **Log a transaction:**\n" +
+          "**Log a transaction:**\n" +
           "• \"spent 500 on groceries\"\n" +
           "• \"earned 2000 from freelance\"\n" +
           "• \"100 grab\"";
@@ -155,13 +155,13 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
         const catSpending = await getCategorySpending();
         const topCat = catSpending.length > 0 ? catSpending[0] : null;
 
-        text = `📉 This month you've spent **₱${totals.expense.toLocaleString()}**`;
+        text = `This month you've spent **₱${totals.expense.toLocaleString()}**`;
         if (topCat) {
-          text += `\n\nYour top category is ${topCat.icon} **${topCat.name}** at ₱${topCat.total.toLocaleString()}`;
+          text += `\n\nYour top category is **${topCat.name}** at ₱${topCat.total.toLocaleString()}`;
         }
         if (totals.income > 0) {
           const savings = totals.income - totals.expense;
-          text += `\n\n${savings >= 0 ? '✅' : '⚠️'} Net: ${savings >= 0 ? '+' : ''}₱${savings.toLocaleString()}`;
+          text += `\n\nNet: ${savings >= 0 ? '+' : ''}₱${savings.toLocaleString()}`;
         }
         action = 'query_result';
         break;
@@ -169,10 +169,10 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
 
       case 'how_much_earned': {
         const totals = await getMonthlyTotals();
-        text = `📈 This month you've earned **₱${totals.income.toLocaleString()}**`;
+        text = `This month you've earned **₱${totals.income.toLocaleString()}**`;
         if (totals.expense > 0) {
           const rate = Math.round(((totals.income - totals.expense) / totals.income) * 100);
-          text += `\n\nSavings rate: **${rate}%** ${rate >= 20 ? '🎉' : rate >= 0 ? '👍' : '😬'}`;
+          text += `\n\nSavings rate: **${rate}%**`;
         }
         action = 'query_result';
         break;
@@ -183,15 +183,15 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
         const net = totals.income - totals.expense;
         const catSpending = await getCategorySpending();
 
-        text = `📊 **Monthly Summary**\n\n` +
-          `📈 Income: ₱${totals.income.toLocaleString()}\n` +
-          `📉 Expenses: ₱${totals.expense.toLocaleString()}\n` +
-          `${net >= 0 ? '✅' : '🚨'} Net: ${net >= 0 ? '+' : ''}₱${net.toLocaleString()}\n`;
+        text = `**Monthly Summary**\n\n` +
+          `Income: ₱${totals.income.toLocaleString()}\n` +
+          `Expenses: ₱${totals.expense.toLocaleString()}\n` +
+          `Net: ${net >= 0 ? '+' : ''}₱${net.toLocaleString()}\n`;
 
         if (catSpending.length > 0) {
           text += `\n**Top Categories:**\n`;
           catSpending.slice(0, 5).forEach((cat, i) => {
-            text += `${i + 1}. ${cat.icon} ${cat.name}: ₱${cat.total.toLocaleString()}\n`;
+            text += `${i + 1}. ${cat.name}: ₱${cat.total.toLocaleString()}\n`;
           });
         }
         action = 'query_result';
@@ -201,18 +201,18 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
       case 'today_summary': {
         const txns = await getTodayTransactions();
         if (txns.length === 0) {
-          text = "No transactions today yet!\n\nTap the + button or tell me what you spent to get started and earn XP! ✨";
+          text = "No transactions today yet!\n\nTap the + button or tell me what you spent to get started and earn XP!";
         } else {
           const totalSpent = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
           const totalEarned = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
 
-          text = `📋 **Today's Activity** (${txns.length} transaction${txns.length > 1 ? 's' : ''})\n\n`;
+          text = `**Today's Activity** (${txns.length} transaction${txns.length > 1 ? 's' : ''})\n\n`;
           txns.forEach(tx => {
             const prefix = tx.type === 'income' ? '+' : '-';
-            text += `${tx.category_icon || '📦'} ${tx.description || tx.category_name}: ${prefix}₱${tx.amount.toLocaleString()}\n`;
+            text += `${tx.description || tx.category_name}: ${prefix}₱${tx.amount.toLocaleString()}\n`;
           });
-          if (totalSpent > 0) text += `\n💸 Spent: ₱${totalSpent.toLocaleString()}`;
-          if (totalEarned > 0) text += `\n💰 Earned: ₱${totalEarned.toLocaleString()}`;
+          if (totalSpent > 0) text += `\nSpent: ₱${totalSpent.toLocaleString()}`;
+          if (totalEarned > 0) text += `\nEarned: ₱${totalEarned.toLocaleString()}`;
         }
         action = 'query_result';
         break;
@@ -223,11 +223,11 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
         if (catSpending.length === 0) {
           text = "No spending data this month yet! Start logging expenses to see your breakdown.";
         } else {
-          text = `🏆 **Top Spending Categories**\n\n`;
+          text = `**Top Spending Categories**\n\n`;
           const total = catSpending.reduce((s, c) => s + c.total, 0);
           catSpending.slice(0, 6).forEach((cat, i) => {
             const pct = Math.round((cat.total / total) * 100);
-            text += `${i + 1}. ${cat.icon} **${cat.name}**: ₱${cat.total.toLocaleString()} (${pct}%)\n`;
+            text += `${i + 1}. **${cat.name}**: ₱${cat.total.toLocaleString()} (${pct}%)\n`;
           });
         }
         action = 'query_result';
@@ -237,13 +237,13 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
       case 'budget_status': {
         const budgets = await getBudgets();
         if (budgets.length === 0) {
-          text = "You haven't set any budgets yet!\n\nGo to the Budget screen to set spending limits and earn the Budget Boss badge! 🏆";
+          text = "You haven't set any budgets yet!\n\nGo to the Budget screen to set spending limits and earn the Budget Boss badge!";
         } else {
-          text = `💰 **Budget Status**\n\n`;
+          text = `**Budget Status**\n\n`;
           budgets.forEach(b => {
             const pct = Math.round(b.progress * 100);
-            const status = b.progress >= 1 ? '🚨' : b.progress >= 0.8 ? '⚠️' : '✅';
-            text += `${status} ${b.category_icon || '📦'} **${b.category_name}**: ₱${b.spent.toLocaleString()} / ₱${b.amount_limit.toLocaleString()} (${pct}%)\n`;
+            const status = b.progress >= 1 ? '[Over]' : b.progress >= 0.8 ? '[Warning]' : '[Good]';
+            text += `${status} **${b.category_name}**: ₱${b.spent.toLocaleString()} / ₱${b.amount_limit.toLocaleString()} (${pct}%)\n`;
           });
         }
         action = 'query_result';
@@ -253,9 +253,9 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
       case 'streak_status': {
         const stats = await getUserStats();
         if (stats.streak === 0) {
-          text = "You don't have a streak yet!\n\nLog a transaction today to start your streak! 🔥";
+          text = "You don't have a streak yet!\n\nLog a transaction today to start your streak!";
         } else {
-          text = `🔥 You're on a **${stats.streak}-day streak**! ${stats.streak >= 7 ? 'Amazing!' : 'Keep it going!'}\n\n❄️ Streak freezes: ${stats.streak_freeze}`;
+          text = `You're on a **${stats.streak}-day streak**! ${stats.streak >= 7 ? 'Amazing!' : 'Keep it going!'}\n\nStreak freezes: ${stats.streak_freeze}`;
         }
         action = 'query_result';
         break;
@@ -263,14 +263,14 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
 
       case 'xp_status': {
         const stats = await getUserStats();
-        text = `⭐ You have **${stats.xp.toLocaleString()} XP**!\n\n🤖 AI-parsed transactions: ${stats.ai_parsed_count}\n\nKeep logging to level up! 🚀`;
+        text = `You have **${stats.xp.toLocaleString()} XP**!\n\nAI-parsed transactions: ${stats.ai_parsed_count}\n\nKeep logging to level up!`;
         action = 'query_result';
         break;
       }
 
       case 'level_status': {
         const stats = await getUserStats();
-        text = `🏅 You're **Level ${stats.level}**!\n\n⭐ ${stats.xp.toLocaleString()} XP total\n🔥 ${stats.streak}-day streak\n\nKeep going! 💪`;
+        text = `You're **Level ${stats.level}**!\n\n${stats.xp.toLocaleString()} XP total\n${stats.streak}-day streak\n\nKeep going!`;
         action = 'query_result';
         break;
       }
@@ -296,8 +296,8 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
             );
 
             text = `Logged!\n\n` +
-              `**₱${parsed.amount.toLocaleString()}** → ${matchedCat.icon || '📦'} ${matchedCat.name}\n` +
-              (parsed.description ? `📝 ${parsed.description}\n` : '') +
+              `**₱${parsed.amount.toLocaleString()}** → ${matchedCat.name}\n` +
+              (parsed.description ? `${parsed.description}\n` : '') +
               `\n+15 XP earned!`;
             action = 'transaction_logged';
           } else {
@@ -317,7 +317,7 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
     }
   } catch (error) {
     console.error('Chat error:', error);
-    text = "Oops, something went wrong! 😅 Try again?";
+    text = "Oops, something went wrong! Try again?";
   }
 
   return {

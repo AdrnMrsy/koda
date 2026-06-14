@@ -9,7 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle, AlertCircle, BarChart2, CheckCircle, Wallet, Target, Sparkles } from 'lucide-react-native';
+
+import { IconMapper } from '../components/IconMapper';
 
 import { KodaButton } from '../components/KodaButton';
 import { KodaCard } from '../components/KodaCard';
@@ -85,11 +87,11 @@ export default function BudgetScreen() {
     ]);
   }
 
-  function getBudgetStatusLabel(progress: number): { text: string; color: string } {
-    if (progress >= 1) return { text: '🚨 Over Budget!', color: 'text-koda-red' };
-    if (progress >= 0.8) return { text: '⚠️ Almost there', color: 'text-koda-orange' };
-    if (progress >= 0.5) return { text: '📊 On track', color: 'text-koda-yellow' };
-    return { text: '✅ Looking good', color: 'text-koda-green' };
+  function getBudgetStatusLabel(progress: number): { text: string; color: string; icon: 'alert-triangle' | 'alert-circle' | 'bar-chart' | 'check' } {
+    if (progress >= 1) return { text: 'Over Budget!', color: 'text-koda-red', icon: 'alert-triangle' };
+    if (progress >= 0.8) return { text: 'Almost there', color: 'text-koda-orange', icon: 'alert-circle' };
+    if (progress >= 0.5) return { text: 'On track', color: 'text-koda-yellow', icon: 'bar-chart' };
+    return { text: 'Looking good', color: 'text-koda-green', icon: 'check' };
   }
 
   // Categories not yet budgeted
@@ -113,10 +115,13 @@ export default function BudgetScreen() {
             <ArrowLeft size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} />
           </Pressable>
           <View>
-            <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-2xl">
-              💰 Budgets
-            </Text>
-            <Text className="font-nunito text-surface-500 dark:text-surface-300 text-sm">
+            <View className="flex-row items-center">
+              <Wallet size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+              <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-2xl">
+                Budgets
+              </Text>
+            </View>
+            <Text className="font-nunito text-surface-500 dark:text-surface-300 text-sm mt-1">
               Set spending limits per category
             </Text>
           </View>
@@ -152,15 +157,21 @@ export default function BudgetScreen() {
                 <View className="flex-row items-center justify-between mb-2">
                   <View className="flex-row items-center">
                     <View className="w-9 h-9 rounded-lg bg-surface-100 dark:bg-koda-dark items-center justify-center mr-2">
-                      <Text className="text-lg">{budget.category_icon || '📦'}</Text>
+                      <IconMapper name={budget.category_icon || 'Package'} size={18} color="#71717A" />
                     </View>
                     <View>
                       <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
                         {budget.category_name}
                       </Text>
-                      <Text className={`font-nunito-semibold text-xs ${status.color}`}>
-                        {status.text}
-                      </Text>
+                      <View className="flex-row items-center mt-0.5">
+                        {status.icon === 'alert-triangle' && <AlertTriangle size={12} color="#FF4B4B" style={{ marginRight: 4 }} />}
+                        {status.icon === 'alert-circle' && <AlertCircle size={12} color="#FF9600" style={{ marginRight: 4 }} />}
+                        {status.icon === 'bar-chart' && <BarChart2 size={12} color="#FFC800" style={{ marginRight: 4 }} />}
+                        {status.icon === 'check' && <CheckCircle size={12} color="#58CC02" style={{ marginRight: 4 }} />}
+                        <Text className={`font-nunito-semibold text-xs ${status.color}`}>
+                          {status.text}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                   <View className="items-end">
@@ -181,7 +192,7 @@ export default function BudgetScreen() {
         {budgets.length === 0 && !showForm && (
           <KodaCard className="mb-4">
             <View className="items-center py-6">
-              <Text className="text-4xl mb-3">🎯</Text>
+              <Target size={40} color="#AFAFAF" style={{ marginBottom: 12 }} />
               <Text className="font-nunito-bold text-surface-800 dark:text-white text-base">
                 No budgets set
               </Text>
@@ -195,9 +206,12 @@ export default function BudgetScreen() {
         {/* Add Budget Form */}
         {showForm ? (
           <KodaCard variant="elevated" className="mb-4">
-            <Text className="font-nunito-bold text-surface-800 dark:text-white text-base mb-3">
-              ✨ New Budget
-            </Text>
+            <View className="flex-row items-center mb-3">
+              <Sparkles size={20} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 6 }} />
+              <Text className="font-nunito-bold text-surface-800 dark:text-white text-base">
+                New Budget
+              </Text>
+            </View>
 
             <Text className="font-nunito-semibold text-surface-800 dark:text-white text-sm mb-2">
               Category
@@ -213,13 +227,21 @@ export default function BudgetScreen() {
                       : 'bg-surface-100 dark:bg-koda-dark border-surface-200 dark:border-surface-800'
                   }`}
                 >
-                  <Text
-                    className={`font-nunito-semibold text-xs ${
-                      selectedCategory?.id === cat.id ? 'text-koda-blue' : 'text-surface-800 dark:text-white'
-                    }`}
-                  >
-                    {cat.icon} {cat.name}
-                  </Text>
+                  <View className="flex-row items-center">
+                    <IconMapper 
+                      name={cat.icon || 'Package'} 
+                      size={14} 
+                      color={selectedCategory?.id === cat.id ? '#1CB0F6' : (isDark ? '#FFFFFF' : '#4B4B4B')} 
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text
+                      className={`font-nunito-semibold text-xs ${
+                        selectedCategory?.id === cat.id ? 'text-koda-blue' : 'text-surface-800 dark:text-white'
+                      }`}
+                    >
+                      {cat.name}
+                    </Text>
+                  </View>
                 </Pressable>
               ))}
               {availableCategories.length === 0 && (

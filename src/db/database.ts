@@ -49,6 +49,17 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
       FOREIGN KEY (category_id) REFERENCES categories(id)
     );
 
+    CREATE TABLE IF NOT EXISTS recurring_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      amount REAL NOT NULL,
+      description TEXT,
+      category_id INTEGER,
+      type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+      frequency TEXT NOT NULL CHECK(frequency IN ('weekly', 'monthly')),
+      next_date TEXT NOT NULL,
+      FOREIGN KEY (category_id) REFERENCES categories(id)
+    );
+
     CREATE TABLE IF NOT EXISTS user_stats (
       id INTEGER PRIMARY KEY DEFAULT 1,
       xp INTEGER NOT NULL DEFAULT 0,
@@ -90,6 +101,28 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
     }
   }
 
+  // Migrate existing category emojis to Lucide icon names
+  try {
+    await db.execAsync(`
+      UPDATE categories SET icon = 'Pizza' WHERE icon = '🍔';
+      UPDATE categories SET icon = 'Car' WHERE icon = '🚗';
+      UPDATE categories SET icon = 'ShoppingBag' WHERE icon = '🛍️';
+      UPDATE categories SET icon = 'Gamepad2' WHERE icon = '🎮';
+      UPDATE categories SET icon = 'Lightbulb' WHERE icon = '💡';
+      UPDATE categories SET icon = 'HeartPulse' WHERE icon = '🏥';
+      UPDATE categories SET icon = 'Book' WHERE icon = '📚';
+      UPDATE categories SET icon = 'ShoppingCart' WHERE icon = '🛒';
+      UPDATE categories SET icon = 'Briefcase' WHERE icon = '💼';
+      UPDATE categories SET icon = 'Laptop' WHERE icon = '💻';
+      UPDATE categories SET icon = 'TrendingUp' WHERE icon = '📈';
+      UPDATE categories SET icon = 'Gift' WHERE icon = '🎁';
+      UPDATE categories SET icon = 'Coins' WHERE icon = '💰';
+      UPDATE categories SET icon = 'Package' WHERE icon = '📦';
+    `);
+  } catch (e) {
+    console.error('Migration failed for category icons:', e);
+  }
+
   // Seed default categories if empty
   const categoryCount = await db.getFirstAsync<{ count: number }>(
     'SELECT COUNT(*) as count FROM categories'
@@ -97,20 +130,20 @@ async function initializeDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
   if (categoryCount && categoryCount.count === 0) {
     await db.execAsync(`
       INSERT INTO categories (name, type, icon) VALUES
-        ('Food & Drinks', 'expense', '🍔'),
-        ('Transport', 'expense', '🚗'),
-        ('Shopping', 'expense', '🛍️'),
-        ('Entertainment', 'expense', '🎮'),
-        ('Bills & Utilities', 'expense', '💡'),
-        ('Health', 'expense', '🏥'),
-        ('Education', 'expense', '📚'),
-        ('Groceries', 'expense', '🛒'),
-        ('Salary', 'income', '💼'),
-        ('Freelance', 'income', '💻'),
-        ('Investment', 'income', '📈'),
-        ('Gift', 'income', '🎁'),
-        ('Other Income', 'income', '💰'),
-        ('Other Expense', 'expense', '📦');
+        ('Food & Drinks', 'expense', 'Pizza'),
+        ('Transport', 'expense', 'Car'),
+        ('Shopping', 'expense', 'ShoppingBag'),
+        ('Entertainment', 'expense', 'Gamepad2'),
+        ('Bills & Utilities', 'expense', 'Lightbulb'),
+        ('Health', 'expense', 'HeartPulse'),
+        ('Education', 'expense', 'Book'),
+        ('Groceries', 'expense', 'ShoppingCart'),
+        ('Salary', 'income', 'Briefcase'),
+        ('Freelance', 'income', 'Laptop'),
+        ('Investment', 'income', 'TrendingUp'),
+        ('Gift', 'income', 'Gift'),
+        ('Other Income', 'income', 'Coins'),
+        ('Other Expense', 'expense', 'Package');
     `);
   }
 
@@ -189,6 +222,21 @@ export interface DailyGoal {
   completed: number;
 }
 
+export interface RecurringTransaction {
+  id: number;
+  amount: number;
+  description: string | null;
+  category_id: number;
+  type: 'income' | 'expense';
+  frequency: 'weekly' | 'monthly';
+  next_date: string;
+}
+
+export interface RecurringTransactionWithCategory extends RecurringTransaction {
+  category_name: string;
+  category_icon: string | null;
+}
+
 // ── Query Helpers ─────────────────────────────────────────────────
 
 export async function getCategories(type?: 'income' | 'expense'): Promise<Category[]> {
@@ -209,6 +257,113 @@ export async function getTransactions(limit = 20): Promise<TransactionWithCatego
      LIMIT ?`,
     [limit]
   );
+}
+
+export async function getTransactionsPaginated(
+  offset: number,
+  limit: number,
+  typeFilter?: 'income' | 'expense' | null,
+  categoryIdFilter?: number | null
+): Promise<TransactionWithCategory[]> {
+  const db = await getDatabase();
+  let query = `SELECT t.*, c.name as category_name, c.icon as category_icon
+     FROM transactions t
+     LEFT JOIN categories c ON t.category_id = c.id
+     WHERE 1=1`;
+  const params: any[] = [];
+
+  if (typeFilter) {
+    query += ` AND t.type = ?`;
+    params.push(typeFilter);
+  }
+  if (categoryIdFilter) {
+    query += ` AND t.category_id = ?`;
+    params.push(categoryIdFilter);
+  }
+
+  query += ` ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  return db.getAllAsync<TransactionWithCategory>(query, params);
+}
+
+export async function getAllTransactions(): Promise<TransactionWithCategory[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<TransactionWithCategory>(
+    `SELECT t.*, c.name as category_name, c.icon as category_icon
+     FROM transactions t
+     LEFT JOIN categories c ON t.category_id = c.id
+     ORDER BY t.date DESC, t.id DESC`
+  );
+}
+
+export async function getRecurringTransactions(): Promise<RecurringTransactionWithCategory[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<RecurringTransactionWithCategory>(
+    `SELECT r.*, c.name as category_name, c.icon as category_icon
+     FROM recurring_transactions r
+     LEFT JOIN categories c ON r.category_id = c.id
+     ORDER BY r.next_date ASC`
+  );
+}
+
+export async function addRecurringTransaction(
+  amount: number,
+  description: string | null,
+  categoryId: number,
+  type: 'income' | 'expense',
+  frequency: 'weekly' | 'monthly',
+  nextDate: string
+): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    'INSERT INTO recurring_transactions (amount, description, category_id, type, frequency, next_date) VALUES (?, ?, ?, ?, ?, ?)',
+    [amount, description, categoryId, type, frequency, nextDate]
+  );
+  return result.lastInsertRowId;
+}
+
+export async function deleteRecurringTransaction(id: number): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM recurring_transactions WHERE id = ?', [id]);
+}
+
+export async function processRecurringTransactions(): Promise<number> {
+  const db = await getDatabase();
+  const today = new Date().toISOString().split('T')[0];
+  
+  const dueTransactions = await db.getAllAsync<RecurringTransaction>(
+    'SELECT * FROM recurring_transactions WHERE next_date <= ?',
+    [today]
+  );
+
+  let processedCount = 0;
+  for (const recurring of dueTransactions) {
+    await addTransaction(
+      recurring.amount,
+      recurring.description,
+      today,
+      recurring.category_id,
+      recurring.type,
+      false
+    );
+    
+    const d = new Date(recurring.next_date);
+    if (recurring.frequency === 'monthly') {
+      d.setMonth(d.getMonth() + 1);
+    } else {
+      d.setDate(d.getDate() + 7);
+    }
+    const newNextDate = d.toISOString().split('T')[0];
+    
+    await db.runAsync(
+      'UPDATE recurring_transactions SET next_date = ? WHERE id = ?',
+      [newNextDate, recurring.id]
+    );
+    processedCount++;
+  }
+  
+  return processedCount;
 }
 
 export async function getTodayTransactions(): Promise<TransactionWithCategory[]> {

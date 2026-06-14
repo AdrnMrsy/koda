@@ -1,7 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
+
+import { Sunrise, Sun, Moon, Wallet, BarChart2, Trophy, Bot, Target, PartyPopper, Repeat } from 'lucide-react-native';
+import { useTheme } from '@/context/ThemeContext';
+import { IconMapper } from '../../components/IconMapper';
 
 import { KodaCard } from '../../components/KodaCard';
 import { XPBadge } from '../../components/XPBadge';
@@ -20,21 +25,23 @@ import {
   getXPForNextLevel,
   getXPForCurrentLevel,
   getLevelTitle,
+  processRecurringTransactions,
   type UserStats,
   type TransactionWithCategory,
   type DailyGoal,
   type BudgetWithProgress,
 } from '@/db/database';
 
-function getGreeting(): { text: string; emoji: string } {
+function getGreeting(): { text: string; iconName: 'sunrise' | 'sun' | 'moon' } {
   const hour = new Date().getHours();
-  if (hour < 12) return { text: 'Good morning', emoji: '🌅' };
-  if (hour < 17) return { text: 'Good afternoon', emoji: '☀️' };
-  return { text: 'Good evening', emoji: '🌙' };
+  if (hour < 12) return { text: 'Good morning', iconName: 'sunrise' };
+  if (hour < 17) return { text: 'Good afternoon', iconName: 'sun' };
+  return { text: 'Good evening', iconName: 'moon' };
 }
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
   const confettiRef = useRef<ConfettiRef>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [transactions, setTransactions] = useState<TransactionWithCategory[]>([]);
@@ -47,6 +54,7 @@ export default function DashboardScreen() {
   const loadData = useCallback(async () => {
     try {
       await updateStreak();
+      await processRecurringTransactions();
       const [s, t, m, d, b] = await Promise.all([
         getUserStats(),
         getTodayTransactions(),
@@ -116,9 +124,14 @@ export default function DashboardScreen() {
         {/* ── Hero Card: Net Worth ── */}
         <View className="px-5 mb-4">
           <KodaCard variant="elevated">
-            <Text className="font-nunito-semibold text-surface-500 text-sm dark:text-surface-300">
-              {greeting.text} {greeting.emoji}
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="font-nunito-semibold text-surface-500 text-sm dark:text-surface-300">
+                {greeting.text}
+              </Text>
+              {greeting.iconName === 'sunrise' && <Sunrise size={16} color={isDark ? '#FCD34D' : '#F59E0B'} />}
+              {greeting.iconName === 'sun' && <Sun size={16} color={isDark ? '#FCD34D' : '#F59E0B'} />}
+              {greeting.iconName === 'moon' && <Moon size={16} color={isDark ? '#93C5FD' : '#3B82F6'} />}
+            </View>
             <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-3xl mt-1">
               ₱{netWorth.toLocaleString()}
             </Text>
@@ -169,9 +182,16 @@ export default function DashboardScreen() {
         <View className="px-5 mb-4">
           <KodaCard variant={goalProgress >= 1 ? 'highlight' : 'default'}>
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
-                {goalProgress >= 1 ? '🎉 Daily Goal Complete!' : '🎯 Daily Goal'}
-              </Text>
+              <View className="flex-row items-center">
+                {goalProgress >= 1 ? (
+                  <PartyPopper size={16} color="#58CC02" style={{ marginRight: 6 }} />
+                ) : (
+                  <Target size={16} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 6 }} />
+                )}
+                <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
+                  {goalProgress >= 1 ? 'Daily Goal Complete!' : 'Daily Goal'}
+                </Text>
+              </View>
               <Text className="font-nunito-semibold text-xs text-surface-500 dark:text-surface-300">
                 {dailyGoal?.current ?? 0} / {dailyGoal?.target ?? 1} transactions
               </Text>
@@ -202,9 +222,12 @@ export default function DashboardScreen() {
             {topBudgets.map((budget) => (
               <KodaCard key={budget.id} className="mb-2">
                 <View className="flex-row items-center justify-between mb-1.5">
-                  <Text className="font-nunito-semibold text-surface-800 dark:text-white text-sm">
-                    {budget.category_icon} {budget.category_name}
-                  </Text>
+                  <View className="flex-row items-center">
+                    <IconMapper name={budget.category_icon || 'Package'} size={14} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 4 }} />
+                    <Text className="font-nunito-semibold text-surface-800 dark:text-white text-sm">
+                      {budget.category_name}
+                    </Text>
+                  </View>
                   <Text className="font-nunito-bold text-surface-800 dark:text-white text-xs">
                     ₱{budget.spent.toLocaleString()} / ₱{budget.amount_limit.toLocaleString()}
                   </Text>
@@ -224,7 +247,7 @@ export default function DashboardScreen() {
             >
               <KodaCard>
                 <View className="items-center py-2">
-                  <Text className="text-2xl mb-1">💰</Text>
+                  <Wallet size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginBottom: 4 }} />
                   <Text className="font-nunito-bold text-surface-800 dark:text-white text-xs">Budgets</Text>
                 </View>
               </KodaCard>
@@ -235,7 +258,7 @@ export default function DashboardScreen() {
             >
               <KodaCard>
                 <View className="items-center py-2">
-                  <Text className="text-2xl mb-1">📊</Text>
+                  <BarChart2 size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginBottom: 4 }} />
                   <Text className="font-nunito-bold text-surface-800 dark:text-white text-xs">Charts</Text>
                 </View>
               </KodaCard>
@@ -246,19 +269,19 @@ export default function DashboardScreen() {
             >
               <KodaCard>
                 <View className="items-center py-2">
-                  <Text className="text-2xl mb-1">🏆</Text>
+                  <Trophy size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginBottom: 4 }} />
                   <Text className="font-nunito-bold text-surface-800 dark:text-white text-xs">Badges</Text>
                 </View>
               </KodaCard>
             </Pressable>
             <Pressable
-              onPress={() => router.push('/chat')}
+              onPress={() => router.push('/recurring')}
               className="flex-1"
             >
-              <KodaCard className="border-koda-purple border-2" style={{ backgroundColor: 'rgba(168, 85, 200, 0.05)' }}>
+              <KodaCard>
                 <View className="items-center py-2">
-                  <Text className="text-2xl mb-1">🤖</Text>
-                  <Text className="font-nunito-bold text-koda-purple text-xs">Chat</Text>
+                  <Repeat size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginBottom: 4 }} />
+                  <Text className="font-nunito-bold text-surface-800 dark:text-white text-[10px]" numberOfLines={1}>Recurring</Text>
                 </View>
               </KodaCard>
             </Pressable>
@@ -267,16 +290,24 @@ export default function DashboardScreen() {
 
         {/* ── Today's Transactions ── */}
         <View className="px-5">
-          <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg mb-3">
-            Today's Activity
-          </Text>
+          <Pressable
+            onPress={() => router.push('/history')}
+            className="flex-row items-center justify-between mb-3"
+          >
+            <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg">
+              Today&apos;s Activity
+            </Text>
+            <Text className="font-nunito-semibold text-koda-blue text-sm">
+              See all →
+            </Text>
+          </Pressable>
           {transactions.length === 0 ? (
             <KodaCard>
               <View className="items-center py-6">
                 <Image 
                   source={require('../../assets/koda.png')} 
-                  className="w-16 h-16 mb-3" 
-                  resizeMode="contain"
+                  style={{ width: 64, height: 64, marginBottom: 12 }} 
+                  contentFit="contain"
                 />
                 <Text className="font-nunito-bold text-surface-800 dark:text-white text-base">
                   No transactions yet!

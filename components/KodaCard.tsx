@@ -6,7 +6,7 @@ interface KodaCardProps extends ViewProps {
   variant?: 'default' | 'elevated' | 'highlight';
 }
 
-export function KodaCard({ children, variant = 'default', className = '', ...rest }: KodaCardProps) {
+export const KodaCard = React.memo(function KodaCard({ children, variant = 'default', className = '', ...rest }: KodaCardProps) {
   const baseClasses = 'rounded-koda p-4';
 
   const variantClasses = {
@@ -20,4 +20,4 @@ export function KodaCard({ children, variant = 'default', className = '', ...res
       {children}
     </View>
   );
-}
+});

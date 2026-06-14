@@ -2,7 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { Moon, Sun, Monitor } from 'lucide-react-native';
+import { Moon, Sun, Monitor, User, Palette, BrainCircuit, Trophy, CheckCircle, Star, Flame, Snowflake, Medal, Footprints, PiggyBank, Bot, Award, Download, Shield } from 'lucide-react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+
+import { IconMapper } from '../../components/IconMapper';
 
 import { KodaCard } from '../../components/KodaCard';
 import { ProgressBar } from '../../components/ProgressBar';
@@ -15,6 +19,7 @@ import {
   getLevelTitle,
   getXPForNextLevel,
   getXPForCurrentLevel,
+  getAllTransactions,
   type UserStats,
   type Achievement,
 } from '@/db/database';
@@ -23,32 +28,32 @@ const BADGE_INFO: Record<string, { title: string; description: string; icon: str
   first_steps: {
     title: 'First Steps',
     description: 'Log your first transaction',
-    icon: '🐾',
+    icon: 'Footprints',
   },
   on_fire: {
     title: 'On Fire',
     description: '7-day streak',
-    icon: '🔥',
+    icon: 'Flame',
   },
   budget_boss: {
     title: 'Budget Boss',
     description: 'Stay under budget for a full month',
-    icon: '🏆',
+    icon: 'Trophy',
   },
   ai_whisperer: {
     title: 'AI Whisperer',
     description: 'Use 50 natural language inputs',
-    icon: '🤖',
+    icon: 'Bot',
   },
   penny_pincher: {
     title: 'Penny Pincher',
     description: 'Save 20% of income in a month',
-    icon: '🐷',
+    icon: 'PiggyBank',
   },
   century_club: {
     title: 'Century Club',
     description: '100-day streak',
-    icon: '💯',
+    icon: 'Award',
   },
 };
 
@@ -80,6 +85,35 @@ export default function ProfileScreen() {
 
   const unlockedCount = achievements.filter((a) => a.unlocked_at).length;
 
+  async function exportData() {
+    try {
+      const allTx = await getAllTransactions();
+      if (allTx.length === 0) {
+        alert('No transactions to export.');
+        return;
+      }
+      
+      let csvContent = "ID,Date,Type,Category,Amount,Description\n";
+      allTx.forEach(tx => {
+        const desc = tx.description ? `"${tx.description.replace(/"/g, '""')}"` : "";
+        csvContent += `${tx.id},${tx.date},${tx.type},"${tx.category_name}",${tx.amount},${desc}\n`;
+      });
+      
+      const fileUri = (FileSystem as any).documentDirectory + "koda_transactions.csv";
+      await (FileSystem as any).writeAsStringAsync(fileUri, csvContent, { encoding: (FileSystem as any).EncodingType.UTF8 });
+      
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        alert("Sharing is not available on your device");
+      }
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      alert("Failed to export data");
+    }
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-surface-100 dark:bg-koda-dark" edges={['top']}>
       <ScrollView
@@ -89,9 +123,12 @@ export default function ProfileScreen() {
       >
         {/* Header */}
         <View className="pt-2 pb-4 flex-row items-center justify-between">
-          <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-2xl">
-            👤 Profile
-          </Text>
+          <View className="flex-row items-center">
+            <User size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+            <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-2xl">
+              Profile
+            </Text>
+          </View>
         </View>
 
         {/* Mascot & Level Card */}
@@ -126,10 +163,12 @@ export default function ProfileScreen() {
           </View>
         </KodaCard>
 
-        {/* Theme Settings */}
-        <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg mb-3">
-          🎨 Appearance
-        </Text>
+        <View className="flex-row items-center mb-3">
+          <Palette size={20} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+          <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg">
+            Appearance
+          </Text>
+        </View>
         <KodaCard className="mb-4">
           <View className="flex-row gap-2">
             {(['light', 'dark', 'system'] as const).map((t) => (
@@ -157,15 +196,41 @@ export default function ProfileScreen() {
           </View>
         </KodaCard>
 
-        {/* AI Engine */}
-        <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg mb-3">
-          🧠 AI Engine
-        </Text>
+        <View className="flex-row items-center mb-3">
+          <Shield size={20} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+          <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg">
+            Data
+          </Text>
+        </View>
+        <KodaCard className="mb-4">
+          <Pressable onPress={exportData} className="flex-row items-center justify-between py-2">
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 rounded-xl bg-koda-green/20 items-center justify-center mr-3">
+                <Download size={20} color="#58CC02" />
+              </View>
+              <View>
+                <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
+                  Export CSV
+                </Text>
+                <Text className="font-nunito text-surface-500 dark:text-surface-300 text-xs">
+                  Save a copy of your transactions
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        </KodaCard>
+
+        <View className="flex-row items-center mb-3">
+          <BrainCircuit size={20} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+          <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg">
+            AI Engine
+          </Text>
+        </View>
         <KodaCard className="mb-4">
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center">
               <View className="w-10 h-10 rounded-xl bg-koda-purple/20 items-center justify-center mr-3">
-                <Text className="text-xl">🤖</Text>
+                <Bot size={24} color="#CE82FF" />
               </View>
               <View>
                 <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
@@ -184,9 +249,12 @@ export default function ProfileScreen() {
               <Text className="font-nunito-semibold text-surface-800 dark:text-white text-xs">
                 AI Transactions
               </Text>
-              <Text className="font-nunito-bold text-koda-purple text-xs">
-                {stats?.ai_parsed_count ?? 0} / 50 🏆
-              </Text>
+              <View className="flex-row items-center">
+                <Text className="font-nunito-bold text-koda-purple text-xs mr-1">
+                  {stats?.ai_parsed_count ?? 0} / 50
+                </Text>
+                <Trophy size={12} color="#CE82FF" />
+              </View>
             </View>
             <Text className="font-nunito text-surface-500 dark:text-surface-300 text-xs mt-1">
               Parse {50 - (stats?.ai_parsed_count ?? 0)} more to unlock AI Whisperer!
@@ -195,7 +263,7 @@ export default function ProfileScreen() {
 
           <View className="bg-koda-blue/5 dark:bg-koda-blue/10 rounded-koda p-3">
             <View className="flex-row items-center mb-1">
-              <Text className="text-sm mr-2">🦙</Text>
+              <Bot size={16} color="#1CB0F6" style={{ marginRight: 6 }} />
               <Text className="font-nunito-bold text-koda-blue text-xs">
                 Llama 3.2 1B — Coming Soon
               </Text>
@@ -210,7 +278,7 @@ export default function ProfileScreen() {
         <View className="flex-row gap-3 mb-4">
           <View className="flex-1">
             <KodaCard>
-              <Text className="text-2xl mb-1">🔥</Text>
+              <Flame size={32} color="#FF9600" style={{ marginBottom: 4 }} />
               <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-xl">
                 {stats?.streak ?? 0}
               </Text>
@@ -219,7 +287,7 @@ export default function ProfileScreen() {
           </View>
           <View className="flex-1">
             <KodaCard>
-              <Text className="text-2xl mb-1">❄️</Text>
+              <Snowflake size={32} color="#1CB0F6" style={{ marginBottom: 4 }} />
               <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-xl">
                 {stats?.streak_freeze ?? 0}
               </Text>
@@ -228,7 +296,7 @@ export default function ProfileScreen() {
           </View>
           <View className="flex-1">
             <KodaCard>
-              <Text className="text-2xl mb-1">🏅</Text>
+              <Medal size={32} color="#CE82FF" style={{ marginBottom: 4 }} />
               <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-xl">
                 {unlockedCount}
               </Text>
@@ -238,9 +306,12 @@ export default function ProfileScreen() {
         </View>
 
         {/* Achievements */}
-        <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg mb-3">
-          🏆 Achievements
-        </Text>
+        <View className="flex-row items-center mb-3">
+          <Trophy size={20} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+          <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg">
+            Achievements
+          </Text>
+        </View>
 
         {achievements.map((achievement) => {
           const info = BADGE_INFO[achievement.badge_key];
@@ -259,19 +330,21 @@ export default function ProfileScreen() {
                     isUnlocked ? 'bg-koda-yellow/30' : 'bg-surface-200 dark:bg-koda-dark'
                   }`}
                 >
-                  <Text className={`text-2xl ${isUnlocked ? '' : 'opacity-30'}`}>
-                    {info.icon}
-                  </Text>
+                  <View style={{ opacity: isUnlocked ? 1 : 0.3 }}>
+                    <IconMapper name={info.icon} size={24} color={isUnlocked ? '#FF9600' : (isDark ? '#FFFFFF' : '#4B4B4B')} />
+                  </View>
                 </View>
                 <View className="flex-1">
-                  <Text
-                    className={`font-nunito-bold text-base ${
-                      isUnlocked ? 'text-surface-800 dark:text-white' : 'text-surface-500 dark:text-surface-300'
-                    }`}
-                  >
-                    {info.title}
-                    {isUnlocked && ' ✅'}
-                  </Text>
+                  <View className="flex-row items-center">
+                    <Text
+                      className={`font-nunito-bold text-base mr-1 ${
+                        isUnlocked ? 'text-surface-800 dark:text-white' : 'text-surface-500 dark:text-surface-300'
+                      }`}
+                    >
+                      {info.title}
+                    </Text>
+                    {isUnlocked && <CheckCircle size={14} color="#58CC02" />}
+                  </View>
                   <Text className="font-nunito text-surface-500 dark:text-surface-300 text-xs mt-0.5">
                     {info.description}
                   </Text>
@@ -287,7 +360,7 @@ export default function ProfileScreen() {
                   )}
                 </View>
                 {isUnlocked && (
-                  <Text className="font-nunito-black text-koda-yellow text-lg">🌟</Text>
+                  <Star size={24} color="#FFC800" fill="#FFC800" />
                 )}
               </View>
             </KodaCard>

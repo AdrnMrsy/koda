@@ -9,8 +9,9 @@ import {
   Platform,
   Animated,
   Keyboard,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useNavigation } from 'expo-router';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -28,7 +29,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const confettiRef = useRef<ConfettiRef>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const flashListRef = useRef<any>(null);
 
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -40,7 +41,7 @@ export default function ChatScreen() {
       {
         id: 'initial',
         role: 'assistant',
-        text: "Hi there! 👋 I'm Koda, your finance buddy.\n\nYou can ask me things like:\n• How much did I spend this month?\n• What's my budget status?\n• Show me today's transactions\n\nOr you can log a transaction by telling me:\n• spent 500 on groceries",
+        text: "Hi there! I'm Koda, your finance buddy.\n\nYou can ask me things like:\n• How much did I spend this month?\n• What's my budget status?\n• Show me today's transactions\n\nOr you can log a transaction by telling me:\n• spent 500 on groceries",
         timestamp: new Date(),
       },
     ]);
@@ -52,7 +53,7 @@ export default function ChatScreen() {
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       () => {
         setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
+          flashListRef.current?.scrollToEnd({ animated: true });
         }, 100);
       }
     );
@@ -93,7 +94,7 @@ export default function ChatScreen() {
     }, 600);
   };
 
-  const renderMessage = (msg: ChatMessage) => {
+  const renderMessage = ({ item: msg }: { item: ChatMessage }) => {
     const isUser = msg.role === 'user';
 
     return (
@@ -105,8 +106,8 @@ export default function ChatScreen() {
           <View className="w-8 h-8 rounded-full bg-koda-purple/20 items-center justify-center mr-2 mt-1 overflow-hidden">
             <Image 
               source={require('../../assets/koda.png')} 
-              className="w-6 h-6" 
-              resizeMode="contain"
+              style={{ width: 24, height: 24 }} 
+              contentFit="contain"
             />
           </View>
         )}
@@ -148,8 +149,8 @@ export default function ChatScreen() {
           <View className="w-10 h-10 rounded-full bg-koda-purple/20 items-center justify-center mr-3 overflow-hidden">
             <Image 
               source={require('../../assets/koda.png')} 
-              className="w-8 h-8" 
-              resizeMode="contain"
+              style={{ width: 32, height: 32 }} 
+              contentFit="contain"
             />
           </View>
           <View>
@@ -163,33 +164,37 @@ export default function ChatScreen() {
         </View>
 
         {/* Chat Area */}
-        <ScrollView
-          ref={scrollViewRef}
-          className="flex-1 px-4 pt-4"
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-          keyboardDismissMode="on-drag"
-        >
-          {messages.map(renderMessage)}
-
-          {isTyping && (
-            <View className="flex-row mb-4 justify-start">
-              <View className="w-8 h-8 rounded-full bg-koda-purple/20 items-center justify-center mr-2 mt-1 overflow-hidden">
-                <Image 
-                  source={require('../../assets/koda.png')} 
-                  className="w-6 h-6" 
-                  resizeMode="contain"
-                />
-              </View>
-              <View className="bg-surface-200 dark:bg-koda-darker rounded-2xl rounded-tl-sm px-4 py-3">
-                <Text className="font-nunito-semibold text-surface-800 dark:text-white">
-                  Typing...
-                </Text>
-              </View>
-            </View>
-          )}
-          <View style={{ height: 20 }} />
-        </ScrollView>
+        <View className="flex-1 px-4 pt-4">
+          <FlashList
+            ref={flashListRef}
+            data={messages}
+            renderItem={renderMessage}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => flashListRef.current?.scrollToEnd({ animated: true })}
+            keyboardDismissMode="on-drag"
+            ListFooterComponent={
+              <>
+                {isTyping && (
+                  <View className="flex-row mb-4 justify-start">
+                    <View className="w-8 h-8 rounded-full bg-koda-purple/20 items-center justify-center mr-2 mt-1 overflow-hidden">
+                      <Image 
+                        source={require('../../assets/koda.png')} 
+                        style={{ width: 24, height: 24 }} 
+                        contentFit="contain"
+                      />
+                    </View>
+                    <View className="bg-surface-200 dark:bg-koda-darker rounded-2xl rounded-tl-sm px-4 py-3">
+                      <Text className="font-nunito-semibold text-surface-800 dark:text-white">
+                        Typing...
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                <View style={{ height: 20 }} />
+              </>
+            }
+          />
+        </View>
 
         {/* Input Area */}
         <View

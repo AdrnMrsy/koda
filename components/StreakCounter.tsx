@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { Flame } from 'lucide-react-native';
 
 interface StreakCounterProps {
   streak: number;
@@ -8,9 +9,9 @@ interface StreakCounterProps {
 
 export function StreakCounter({ streak, size = 'md' }: StreakCounterProps) {
   const sizeClasses = {
-    sm: { container: 'px-2 py-1', text: 'text-xs', icon: '🔥' },
-    md: { container: 'px-3 py-1.5', text: 'text-sm', icon: '🔥' },
-    lg: { container: 'px-4 py-2', text: 'text-base', icon: '🔥' },
+    sm: { container: 'px-2 py-1', text: 'text-xs', iconSize: 12 },
+    md: { container: 'px-3 py-1.5', text: 'text-sm', iconSize: 14 },
+    lg: { container: 'px-4 py-2', text: 'text-base', iconSize: 16 },
   };
 
   const s = sizeClasses[size];
@@ -22,7 +23,9 @@ export function StreakCounter({ streak, size = 'md' }: StreakCounterProps) {
         isActive ? 'bg-koda-orange/20' : 'bg-surface-100 dark:bg-koda-darker'
       }`}
     >
-      <Text className={`${s.text} mr-1 ${isActive ? '' : 'opacity-40'}`}>{s.icon}</Text>
+      <View className="mr-1" style={{ opacity: isActive ? 1 : 0.4 }}>
+        <Flame size={s.iconSize} color="#FF9600" />
+      </View>
       <Text
         className={`font-nunito-black ${s.text} ${
           isActive ? 'text-koda-orange' : 'text-surface-500'

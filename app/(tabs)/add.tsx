@@ -19,6 +19,9 @@ import * as Haptics from 'expo-haptics';
 import { KodaButton } from '../../components/KodaButton';
 import { KodaCard } from '../../components/KodaCard';
 import { ConfettiOverlay, type ConfettiRef } from '../../components/ConfettiOverlay';
+import { IconMapper } from '../../components/IconMapper';
+import { useTheme } from '@/context/ThemeContext';
+import { PartyPopper, Sparkles, TrendingDown, TrendingUp, Bot } from 'lucide-react-native';
 import {
   getCategories,
   addTransaction,
@@ -30,6 +33,7 @@ type TransactionType = 'expense' | 'income';
 
 export default function AddTransactionScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
   const tabBarHeight = useBottomTabBarHeight();
   const confettiRef = useRef<ConfettiRef>(null);
   const aiGlowAnim = useRef(new Animated.Value(0)).current;
@@ -176,12 +180,12 @@ export default function AddTransactionScreen() {
         {xpEarned !== null && (
           <View className="absolute top-0 left-0 right-0 bottom-0 z-50 items-center justify-center bg-black/30">
             <View className="bg-white dark:bg-koda-darker rounded-koda-lg p-8 items-center mx-10">
-              <Text className="text-5xl mb-3">🎉</Text>
+              <PartyPopper size={48} color="#58CC02" style={{ marginBottom: 12 }} />
               <Text className="font-nunito-extrabold text-koda-green text-2xl">
                 +{xpEarned} XP
               </Text>
               <Text className="font-nunito text-surface-500 dark:text-surface-300 text-sm mt-2">
-                {isAiParsed ? '✨ AI-Parsed Transaction!' : 'Transaction logged!'}
+                {isAiParsed ? 'AI-Parsed Transaction!' : 'Transaction logged!'}
               </Text>
             </View>
           </View>
@@ -198,7 +202,8 @@ export default function AddTransactionScreen() {
               Add Transaction
             </Text>
             <Text className="font-nunito text-surface-500 dark:text-surface-300 text-sm mt-1">
-              Type naturally or fill manually ✨
+              Type naturally or fill manually
+
             </Text>
           </View>
 
@@ -216,10 +221,11 @@ export default function AddTransactionScreen() {
               {isAiParsed && (
                 <Animated.View
                   style={{ opacity: aiGlowAnim }}
-                  className="bg-koda-purple/20 rounded-pill px-2 py-0.5"
+                  className="bg-koda-purple/20 rounded-pill px-2 py-0.5 flex-row items-center"
                 >
+                  <Bot size={12} color="#CE82FF" style={{ marginRight: 4 }} />
                   <Text className="font-nunito-bold text-koda-purple text-xs">
-                    ✨ AI Parsed
+                    AI Parsed
                   </Text>
                 </Animated.View>
               )}
@@ -267,8 +273,8 @@ export default function AddTransactionScreen() {
                     </View>
                   )}
                   <View className={`rounded-pill px-2.5 py-1 ${aiResult.type === 'expense' ? 'bg-koda-red/10' : 'bg-koda-green/10'}`}>
-                    <Text className={`font-nunito-bold text-xs ${aiResult.type === 'expense' ? 'text-koda-red' : 'text-koda-green'}`}>
-                      {aiResult.type === 'expense' ? '💸 Expense' : '💰 Income'}
+                    <Text className={`font-nunito-bold text-xs flex-row items-center ${aiResult.type === 'expense' ? 'text-koda-red' : 'text-koda-green'}`}>
+                      {aiResult.type === 'expense' ? 'Expense' : 'Income'}
                     </Text>
                   </View>
                   {aiResult.categoryName && (
@@ -336,13 +342,16 @@ export default function AddTransactionScreen() {
                 type === 'expense' ? 'bg-koda-red' : ''
               }`}
             >
-              <Text
-                className={`font-nunito-bold text-sm ${
-                  type === 'expense' ? 'text-white' : 'text-surface-500 dark:text-surface-300'
-                }`}
-              >
-                💸 Expense
-              </Text>
+              <View className="flex-row items-center">
+                <TrendingDown size={16} color={type === 'expense' ? 'white' : '#AFAFAF'} style={{ marginRight: 6 }} />
+                <Text
+                  className={`font-nunito-bold text-sm ${
+                    type === 'expense' ? 'text-white' : 'text-surface-500 dark:text-surface-300'
+                  }`}
+                >
+                  Expense
+                </Text>
+              </View>
             </Pressable>
             <Pressable
               onPress={() => setType('income')}
@@ -350,13 +359,16 @@ export default function AddTransactionScreen() {
                 type === 'income' ? 'bg-koda-green' : ''
               }`}
             >
-              <Text
-                className={`font-nunito-bold text-sm ${
-                  type === 'income' ? 'text-white' : 'text-surface-500 dark:text-surface-300'
-                }`}
-              >
-                💰 Income
-              </Text>
+              <View className="flex-row items-center">
+                <TrendingUp size={16} color={type === 'income' ? 'white' : '#AFAFAF'} style={{ marginRight: 6 }} />
+                <Text
+                  className={`font-nunito-bold text-sm ${
+                    type === 'income' ? 'text-white' : 'text-surface-500 dark:text-surface-300'
+                  }`}
+                >
+                  Income
+                </Text>
+              </View>
             </Pressable>
           </View>
 
@@ -410,17 +422,31 @@ export default function AddTransactionScreen() {
                     : 'bg-white dark:bg-koda-darker border-surface-200 dark:border-surface-800'
                 }`}
               >
-                <Text
-                  className={`font-nunito-semibold text-sm ${
-                    selectedCategory?.id === cat.id
-                      ? type === 'expense'
-                        ? 'text-koda-red'
-                        : 'text-koda-green'
-                      : 'text-surface-800 dark:text-white'
-                  }`}
-                >
-                  {cat.icon} {cat.name}
-                </Text>
+                <View className="flex-row items-center">
+                  <IconMapper 
+                    name={cat.icon || 'Package'} 
+                    size={14} 
+                    color={
+                      selectedCategory?.id === cat.id
+                        ? type === 'expense'
+                          ? '#FF4B4B'
+                          : '#58CC02'
+                        : isDark ? '#FFFFFF' : '#4B4B4B'
+                    } 
+                    style={{ marginRight: 6 }} 
+                  />
+                  <Text
+                    className={`font-nunito-semibold text-sm ${
+                      selectedCategory?.id === cat.id
+                        ? type === 'expense'
+                          ? 'text-koda-red'
+                          : 'text-koda-green'
+                        : 'text-surface-800 dark:text-white'
+                    }`}
+                  >
+                    {cat.name}
+                  </Text>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -435,9 +461,12 @@ export default function AddTransactionScreen() {
           />
 
           {isAiParsed && (
-            <Text className="font-nunito text-koda-purple text-xs text-center mt-2">
-              ✨ +5 bonus XP for using AI input!
-            </Text>
+            <View className="flex-row items-center justify-center mt-2">
+              <Bot size={12} color="#A855C8" style={{ marginRight: 4 }} />
+              <Text className="font-nunito text-koda-purple text-xs">
+                +5 bonus XP for using AI input!
+              </Text>
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>

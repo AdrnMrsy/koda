@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Unlock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 interface LockScreenProps {
@@ -37,8 +38,8 @@ export function LockScreen({ onAuthenticate }: LockScreenProps) {
           className="bg-white/20 rounded-koda-lg px-10 py-4 border-2 border-white/30 active:bg-white/30"
         >
           <View className="flex-row items-center">
-            <Text className="text-2xl mr-3">🔓</Text>
-            <Text className="font-nunito-bold text-white text-lg">
+            <Unlock size={24} color="white" className="mr-3" />
+            <Text className="font-nunito-bold text-white text-lg ml-3">
               Tap to Unlock
             </Text>
           </View>

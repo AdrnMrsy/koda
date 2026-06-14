@@ -4,12 +4,14 @@
     "slug": "koda",
     "version": "1.0.0",
     "scheme": "koda",
+    "jsEngine": "hermes",
     "experiments": {
       "tsconfigPaths": true
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "@react-native-community/datetimepicker"
     ],
     "orientation": "portrait",
     "icon": "./assets/adaptive-icon.png",

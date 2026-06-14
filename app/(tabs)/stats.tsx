@@ -2,7 +2,10 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { BarChart, PieChart } from 'react-native-gifted-charts';
+import { BarChart, PieChart as GiftedPieChart } from 'react-native-gifted-charts';
+import { TrendingUp, TrendingDown, BarChart2, PieChart } from 'lucide-react-native';
+
+import { IconMapper } from '../../components/IconMapper';
 
 import { KodaCard } from '../../components/KodaCard';
 import { ProgressBar } from '../../components/ProgressBar';
@@ -70,8 +73,6 @@ export default function StatsScreen() {
   const pieData = categoryData.map((c) => ({
     value: c.total,
     color: c.color,
-    text: c.icon,
-    textSize: 14,
   }));
 
   const totalExpense = categoryData.reduce((sum, c) => sum + c.total, 0);
@@ -85,9 +86,12 @@ export default function StatsScreen() {
       >
         {/* Header */}
         <View className="pt-2 pb-4">
-          <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-2xl">
-            📊 Stats
-          </Text>
+          <View className="flex-row items-center">
+            <BarChart2 size={24} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 8 }} />
+            <Text className="font-nunito-extrabold text-surface-800 dark:text-white text-2xl">
+              Stats
+            </Text>
+          </View>
           <Text className="font-nunito text-surface-500 dark:text-surface-300 text-sm mt-1">
             {currentMonth} Overview
           </Text>
@@ -97,7 +101,7 @@ export default function StatsScreen() {
         <View className="flex-row gap-3 mb-4">
           <View className="flex-1">
             <KodaCard>
-              <Text className="text-xl mb-1">📈</Text>
+              <TrendingUp size={24} color="#58CC02" style={{ marginBottom: 4 }} />
               <Text className="font-nunito-semibold text-xs text-surface-500 dark:text-surface-300">Income</Text>
               <Text className="font-nunito-extrabold text-koda-green text-lg">
                 ₱{monthlyTotals.income.toLocaleString()}
@@ -106,7 +110,7 @@ export default function StatsScreen() {
           </View>
           <View className="flex-1">
             <KodaCard>
-              <Text className="text-xl mb-1">📉</Text>
+              <TrendingDown size={24} color="#FF4B4B" style={{ marginBottom: 4 }} />
               <Text className="font-nunito-semibold text-xs text-surface-500 dark:text-surface-300">Expenses</Text>
               <Text className="font-nunito-extrabold text-koda-red text-lg">
                 ₱{monthlyTotals.expense.toLocaleString()}
@@ -172,7 +176,7 @@ export default function StatsScreen() {
             </View>
           ) : (
             <View className="items-center py-8">
-              <Text className="text-3xl mb-2">📊</Text>
+              <BarChart2 size={40} color="#AFAFAF" style={{ marginBottom: 8 }} />
               <Text className="font-nunito-bold text-surface-500 dark:text-surface-300 text-sm">
                 No spending data this week
               </Text>
@@ -187,7 +191,7 @@ export default function StatsScreen() {
         {categoryData.length > 0 ? (
           <KodaCard className="mb-4">
             <View className="items-center">
-              <PieChart
+              <GiftedPieChart
                 data={pieData}
                 donut
                 radius={90}
@@ -216,9 +220,12 @@ export default function StatsScreen() {
                       className="w-3 h-3 rounded-full mr-2"
                       style={{ backgroundColor: cat.color }}
                     />
-                    <Text className="font-nunito-semibold text-surface-800 dark:text-white text-sm">
-                      {cat.icon} {cat.name}
-                    </Text>
+                    <View className="flex-row items-center">
+                      <IconMapper name={cat.icon || 'Package'} size={14} color={isDark ? '#FFFFFF' : '#4B4B4B'} style={{ marginRight: 4 }} />
+                      <Text className="font-nunito-semibold text-surface-800 dark:text-white text-sm">
+                        {cat.name}
+                      </Text>
+                    </View>
                   </View>
                   <View className="items-end">
                     <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
@@ -235,7 +242,7 @@ export default function StatsScreen() {
         ) : (
           <KodaCard className="mb-4">
             <View className="items-center py-6">
-              <Text className="text-4xl mb-3">🥧</Text>
+              <PieChart size={40} color="#AFAFAF" style={{ marginBottom: 12 }} />
               <Text className="font-nunito-bold text-surface-800 dark:text-white text-base">
                 No data yet
               </Text>
