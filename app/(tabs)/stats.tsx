@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { BarChart, PieChart as GiftedPieChart } from 'react-native-gifted-charts';
@@ -13,8 +13,10 @@ import { useTheme } from '@/context/ThemeContext';
 import {
   getMonthlyTotals,
   getWeeklySpending,
+  getFourWeekSpending,
   getCategorySpending,
   type DailySpending,
+  type WeeklySpendingData,
   type CategorySpending,
 } from '@/db/database';
 
@@ -24,17 +26,21 @@ export default function StatsScreen() {
   const { isDark } = useTheme();
   const [monthlyTotals, setMonthlyTotals] = useState({ income: 0, expense: 0 });
   const [weeklyData, setWeeklyData] = useState<DailySpending[]>([]);
+  const [fourWeekData, setFourWeekData] = useState<WeeklySpendingData[]>([]);
+  const [timeRange, setTimeRange] = useState<'week' | 'month'>('week');
   const [categoryData, setCategoryData] = useState<CategorySpending[]>([]);
 
   const loadData = useCallback(async () => {
     try {
-      const [totals, weekly, categories] = await Promise.all([
+      const [totals, weekly, fourWeek, categories] = await Promise.all([
         getMonthlyTotals(),
         getWeeklySpending(),
+        getFourWeekSpending(),
         getCategorySpending(),
       ]);
       setMonthlyTotals(totals);
       setWeeklyData(weekly);
+      setFourWeekData(fourWeek);
       setCategoryData(categories);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -57,9 +63,10 @@ export default function StatsScreen() {
   const currentMonth = monthNames[new Date().getMonth()];
 
   // Bar chart data
-  const barData = weeklyData.map((d) => ({
+  const chartData = timeRange === 'week' ? weeklyData : fourWeekData;
+  const barData = chartData.map((d: any) => ({
     value: d.amount,
-    label: d.dayLabel,
+    label: d.dayLabel || d.label,
     frontColor: d.amount > 0 ? '#FF4B4B' : (isDark ? '#4B4B4B' : '#E5E5E5'),
     topLabelComponent: () =>
       d.amount > 0 ? (
@@ -148,18 +155,38 @@ export default function StatsScreen() {
         </KodaCard>
 
         {/* Weekly Spending Bar Chart */}
-        <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg mb-3">
-          Weekly Spending
-        </Text>
+        <View className="flex-row items-center justify-between mb-3">
+          <Text className="font-nunito-bold text-surface-800 dark:text-white text-lg">
+            Spending Trend
+          </Text>
+          <View className="flex-row bg-surface-200 dark:bg-surface-800 rounded-full p-1">
+            <TouchableOpacity
+              onPress={() => setTimeRange('week')}
+              className={`px-3 py-1 rounded-full ${timeRange === 'week' ? 'bg-white dark:bg-koda-dark shadow-sm' : 'shadow-none'}`}
+            >
+              <Text className={`font-nunito-semibold text-xs ${timeRange === 'week' ? 'text-surface-800 dark:text-white' : 'text-surface-500 dark:text-surface-400'}`}>
+                7 Days
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setTimeRange('month')}
+              className={`px-3 py-1 rounded-full ${timeRange === 'month' ? 'bg-white dark:bg-koda-dark shadow-sm' : 'shadow-none'}`}
+            >
+              <Text className={`font-nunito-semibold text-xs ${timeRange === 'month' ? 'text-surface-800 dark:text-white' : 'text-surface-500 dark:text-surface-400'}`}>
+                4 Weeks
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         <KodaCard className="mb-4">
-          {weeklyData.some((d) => d.amount > 0) ? (
+          {chartData.some((d: any) => d.amount > 0) ? (
             <View className="items-center">
               <BarChart
                 data={barData}
                 width={screenWidth - 80}
                 height={160}
-                barWidth={28}
-                spacing={16}
+                barWidth={timeRange === 'week' ? 28 : 46}
+                spacing={timeRange === 'week' ? 16 : 32}
                 roundedTop
                 roundedBottom
                 noOfSections={4}
@@ -178,7 +205,7 @@ export default function StatsScreen() {
             <View className="items-center py-8">
               <BarChart2 size={40} color="#AFAFAF" style={{ marginBottom: 8 }} />
               <Text className="font-nunito-bold text-surface-500 dark:text-surface-300 text-sm">
-                No spending data this week
+                No spending data {timeRange === 'week' ? 'this week' : 'this month'}
               </Text>
             </View>
           )}
@@ -231,9 +258,28 @@ export default function StatsScreen() {
                     <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm">
                       ₱{cat.total.toLocaleString()}
                     </Text>
-                    <Text className="font-nunito text-surface-500 dark:text-surface-300 text-xs">
-                      {totalExpense > 0 ? Math.round((cat.total / totalExpense) * 100) : 0}%
-                    </Text>
+                    <View className="flex-row items-center mt-1">
+                      {cat.percentageChange !== undefined && cat.percentageChange !== 0 && (
+                        <View className="flex-row items-center mr-2">
+                          <IconMapper
+                            name={cat.percentageChange > 0 ? 'TrendingUp' : 'TrendingDown'}
+                            size={12}
+                            color={cat.percentageChange > 0 ? '#FF4B4B' : '#58CC02'}
+                            style={{ marginRight: 2 }}
+                          />
+                          <Text
+                            className={`font-nunito-bold text-[10px] ${
+                              cat.percentageChange > 0 ? 'text-koda-red' : 'text-koda-green'
+                            }`}
+                          >
+                            {Math.abs(cat.percentageChange).toFixed(0)}%
+                          </Text>
+                        </View>
+                      )}
+                      <Text className="font-nunito text-surface-500 dark:text-surface-300 text-xs">
+                        {totalExpense > 0 ? Math.round((cat.total / totalExpense) * 100) : 0}%
+                      </Text>
+                    </View>
                   </View>
                 </View>
               ))}

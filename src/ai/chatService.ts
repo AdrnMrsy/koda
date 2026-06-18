@@ -7,6 +7,7 @@ import {
   getBudgets,
   getCategories,
   addTransaction,
+  addRecurringTransaction,
   type TransactionWithCategory,
   type Category,
 } from '@/db/database';
@@ -21,6 +22,10 @@ export interface ChatMessage {
   timestamp: Date;
   action?: 'transaction_logged' | 'query_result';
 }
+
+// ── State ─────────────────────────────────────────────────────────
+
+let pendingTransaction: Partial<import('./smartParser').ParsedTransaction> | null = null;
 
 // ── Intent Detection ──────────────────────────────────────────────
 
@@ -37,6 +42,7 @@ type Intent =
   | 'level_status'
   | 'log_transaction'
   | 'help'
+  | 'cancel'
   | 'unknown';
 
 function detectIntent(text: string): Intent {
@@ -97,9 +103,14 @@ function detectIntent(text: string): Intent {
     return 'level_status';
   }
 
+  // Cancellation
+  if (/^(cancel|stop|nevermind|nvm|abort)$/i.test(lower)) {
+    return 'cancel';
+  }
+
   // Check if it looks like a transaction to log
   const parsed = parseTransaction(lower);
-  if (parsed.amount && parsed.confidence >= 0.4) {
+  if (parsed.confidence >= 0.3) {
     return 'log_transaction';
   }
 
@@ -119,7 +130,122 @@ const KODA_UNKNOWNS = [
   "I didn't quite get that! I can help with spending questions, budgets, or logging transactions. Try asking me something specific!",
 ];
 
+async function handlePendingTransaction(userMessage: string): Promise<ChatMessage> {
+  const parsed = parseTransaction(userMessage);
+  
+  if (!pendingTransaction!.amount && parsed.amount) {
+    pendingTransaction!.amount = parsed.amount;
+  }
+  if (!pendingTransaction!.categoryName && parsed.categoryName) {
+    pendingTransaction!.categoryName = parsed.categoryName;
+  }
+  if (pendingTransaction!.isRecurring) {
+    if (!pendingTransaction!.frequency && parsed.frequency) {
+      pendingTransaction!.frequency = parsed.frequency;
+    }
+    if (!pendingTransaction!.nextDate && parsed.nextDate) {
+      pendingTransaction!.nextDate = parsed.nextDate;
+    }
+    // For description, if we asked for it and user typed, it might not be parsed fully by smartParser description,
+    // so we can fallback to the raw userMessage if we were explicitly asking for description.
+    if (!pendingTransaction!.description && userMessage.trim().length > 0 && !parsed.amount && !parsed.nextDate) {
+      pendingTransaction!.description = userMessage.trim();
+    } else if (!pendingTransaction!.description && parsed.description) {
+      pendingTransaction!.description = parsed.description;
+    }
+  }
+
+  let text = '';
+  let action: ChatMessage['action'] = undefined;
+
+  const isReady = pendingTransaction!.isRecurring
+    ? (pendingTransaction!.amount && pendingTransaction!.categoryName && pendingTransaction!.frequency && pendingTransaction!.nextDate && pendingTransaction!.description)
+    : (pendingTransaction!.amount && pendingTransaction!.categoryName);
+
+  if (isReady) {
+    const cats = await getCategories(pendingTransaction!.type || 'expense');
+    const matchedCat = cats.find(
+      c => c.name.toLowerCase() === pendingTransaction!.categoryName!.toLowerCase()
+    );
+
+    if (matchedCat) {
+      if (pendingTransaction!.isRecurring) {
+        await addRecurringTransaction(
+          pendingTransaction!.amount!,
+          pendingTransaction!.description || null,
+          matchedCat.id,
+          pendingTransaction!.type || 'expense',
+          pendingTransaction!.frequency as 'weekly' | 'monthly',
+          pendingTransaction!.nextDate!
+        );
+        text = `Recurring Transaction Saved!\n\n` +
+          `**₱${pendingTransaction!.amount!.toLocaleString()}** → ${matchedCat.name} (${pendingTransaction!.frequency})\n` +
+          (pendingTransaction!.description ? `${pendingTransaction!.description}\n` : '') +
+          `Next Date: ${pendingTransaction!.nextDate}`;
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        await addTransaction(
+          pendingTransaction!.amount!,
+          pendingTransaction!.description || null,
+          today,
+          matchedCat.id,
+          pendingTransaction!.type || 'expense',
+          true
+        );
+        text = `Logged!\n\n` +
+          `**₱${pendingTransaction!.amount!.toLocaleString()}** → ${matchedCat.name}\n` +
+          (pendingTransaction!.description ? `${pendingTransaction!.description}\n` : '') +
+          `\n+15 XP earned!`;
+      }
+      action = 'transaction_logged';
+      pendingTransaction = null;
+    } else {
+      text = `I couldn't match a category for "${pendingTransaction!.categoryName}".\n\nTry the + tab to pick a category manually!`;
+      pendingTransaction = null;
+    }
+  } else {
+    // Determine missing field and ask
+    if (!pendingTransaction!.amount) {
+      text = `How much is this ${pendingTransaction!.isRecurring ? 'recurring ' : ''}${pendingTransaction!.type}?`;
+    } else if (!pendingTransaction!.categoryName) {
+      text = `I see ₱${pendingTransaction!.amount}. What category should I put this under?`;
+    } else if (pendingTransaction!.isRecurring) {
+      if (!pendingTransaction!.frequency) {
+        text = `Is this recurring weekly or monthly?`;
+      } else if (!pendingTransaction!.nextDate) {
+        text = `When is the next date for this? (Please use YYYY-MM-DD format)`;
+      } else if (!pendingTransaction!.description) {
+        text = `What is a short description for this? (e.g., Salary, Rent)`;
+      }
+    }
+  }
+
+  return {
+    id: Date.now().toString(),
+    role: 'assistant',
+    text,
+    timestamp: new Date(),
+    action,
+  };
+}
+
 export async function generateResponse(userMessage: string): Promise<ChatMessage> {
+  if (/^(cancel|stop|nevermind|nvm|abort)$/i.test(userMessage.toLowerCase().trim())) {
+    if (pendingTransaction) {
+      pendingTransaction = null;
+      return {
+        id: Date.now().toString(),
+        role: 'assistant',
+        text: "Okay, I've cancelled logging that transaction. What else can I help with?",
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  if (pendingTransaction) {
+    return await handlePendingTransaction(userMessage);
+  }
+
   const intent = detectIntent(userMessage);
   let text = '';
   let action: ChatMessage['action'] = undefined;
@@ -277,7 +403,12 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
 
       case 'log_transaction': {
         const parsed = parseTransaction(userMessage);
-        if (parsed.amount && parsed.categoryName) {
+        
+        const isReady = parsed.isRecurring
+          ? (parsed.amount && parsed.categoryName && parsed.frequency && parsed.nextDate && parsed.description)
+          : (parsed.amount && parsed.categoryName);
+
+        if (isReady) {
           // Find the category ID
           const cats = await getCategories(parsed.type);
           const matchedCat = cats.find(
@@ -285,29 +416,60 @@ export async function generateResponse(userMessage: string): Promise<ChatMessage
           );
 
           if (matchedCat) {
-            const today = new Date().toISOString().split('T')[0];
-            await addTransaction(
-              parsed.amount,
-              parsed.description,
-              today,
-              matchedCat.id,
-              parsed.type,
-              true // AI parsed
-            );
-
-            text = `Logged!\n\n` +
-              `**₱${parsed.amount.toLocaleString()}** → ${matchedCat.name}\n` +
-              (parsed.description ? `${parsed.description}\n` : '') +
-              `\n+15 XP earned!`;
+            if (parsed.isRecurring) {
+              await addRecurringTransaction(
+                parsed.amount!,
+                parsed.description || null,
+                matchedCat.id,
+                parsed.type,
+                parsed.frequency as 'weekly' | 'monthly',
+                parsed.nextDate!
+              );
+              text = `Recurring Transaction Saved!\n\n` +
+                `**₱${parsed.amount!.toLocaleString()}** → ${matchedCat.name} (${parsed.frequency})\n` +
+                (parsed.description ? `${parsed.description}\n` : '') +
+                `Next Date: ${parsed.nextDate}`;
+            } else {
+              const today = new Date().toISOString().split('T')[0];
+              await addTransaction(
+                parsed.amount!,
+                parsed.description,
+                today,
+                matchedCat.id,
+                parsed.type,
+                true // AI parsed
+              );
+              text = `Logged!\n\n` +
+                `**₱${parsed.amount!.toLocaleString()}** → ${matchedCat.name}\n` +
+                (parsed.description ? `${parsed.description}\n` : '') +
+                `\n+15 XP earned!`;
+            }
             action = 'transaction_logged';
           } else {
-            text = `I found ₱${parsed.amount.toLocaleString()} but couldn't match a category for "${parsed.categoryName}".\n\nTry the + tab to pick a category manually!`;
+            text = `I found ₱${parsed.amount!.toLocaleString()} but couldn't match a category for "${parsed.categoryName}".\n\nTry the + tab to pick a category manually!`;
           }
-        } else if (parsed.amount) {
-          text = `I see ₱${parsed.amount.toLocaleString()} but I'm not sure about the category.\n\nTry being more specific, like "spent ${parsed.amount} on food" or use the + tab!`;
         } else {
-          text = KODA_UNKNOWNS[Math.floor(Math.random() * KODA_UNKNOWNS.length)];
+          // Partial transaction flow
+          pendingTransaction = { ...parsed };
+          if (!parsed.amount) {
+            text = `How much is this ${parsed.isRecurring ? 'recurring ' : ''}${parsed.type}?`;
+          } else if (!parsed.categoryName) {
+            text = `I see ₱${parsed.amount}. What category should I put this under?`;
+          } else if (parsed.isRecurring) {
+            if (!parsed.frequency) {
+              text = `Is this recurring weekly or monthly?`;
+            } else if (!parsed.nextDate) {
+              text = `When is the next date for this? (Please use YYYY-MM-DD format)`;
+            } else if (!parsed.description) {
+              text = `What is a short description for this? (e.g., Salary, Rent)`;
+            }
+          }
         }
+        break;
+      }
+
+      case 'cancel': {
+        text = "There's nothing to cancel right now.";
         break;
       }
 

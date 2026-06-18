@@ -35,6 +35,12 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
 
+  const QUICK_REPLIES = [
+    "How much did I spend today?",
+    "What is my streak?",
+    "Show budget status",
+  ];
+
   // Initial greeting
   useEffect(() => {
     setMessages([
@@ -63,18 +69,19 @@ export default function ChatScreen() {
     };
   }, []);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = async (overrideInput?: string) => {
+    const textToSend = typeof overrideInput === 'string' ? overrideInput : input;
+    if (!textToSend.trim()) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      text: input.trim(),
+      text: textToSend.trim(),
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    if (typeof overrideInput !== 'string') setInput('');
     setIsTyping(true);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -198,10 +205,30 @@ export default function ChatScreen() {
 
         {/* Input Area */}
         <View
-          className="bg-white dark:bg-koda-darker px-4 py-3 border-t border-surface-200 dark:border-surface-800"
+          className="bg-white dark:bg-koda-darker border-t border-surface-200 dark:border-surface-800"
           style={{ paddingBottom: 12 }}
         >
-          <View className="flex-row items-center">
+          {/* Quick Replies */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            className="flex-row py-2 px-4"
+            contentContainerStyle={{ paddingRight: 24 }}
+          >
+            {QUICK_REPLIES.map((reply, index) => (
+              <Pressable
+                key={index}
+                onPress={() => handleSend(reply)}
+                className="bg-surface-100 dark:bg-koda-dark px-4 py-2 rounded-full mr-2 border border-surface-200 dark:border-surface-700"
+              >
+                <Text className="font-nunito-semibold text-sm text-surface-800 dark:text-white">
+                  {reply}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <View className="flex-row items-center px-4 pt-1">
             <View className="flex-1 bg-surface-100 dark:bg-koda-dark rounded-koda flex-row items-center px-4 py-2 min-h-[50px]">
               <TextInput
                 className="flex-1 font-nunito text-base text-surface-800 dark:text-white py-2"
@@ -215,7 +242,7 @@ export default function ChatScreen() {
               />
               {input.trim().length > 0 && (
                 <Pressable
-                  onPress={handleSend}
+                  onPress={() => handleSend()}
                   className="w-10 h-10 rounded-full bg-koda-green items-center justify-center ml-2"
                 >
                   <Send size={18} color="#FFFFFF" strokeWidth={2.5} style={{ marginLeft: -2 }} />

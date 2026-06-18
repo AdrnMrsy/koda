@@ -16,6 +16,7 @@ import { IconMapper } from '../components/IconMapper';
 import { KodaButton } from '../components/KodaButton';
 import { KodaCard } from '../components/KodaCard';
 import { ProgressBar } from '../components/ProgressBar';
+import { BrankasConnectButton } from '../components/BrankasConnectButton';
 import { useTheme } from '@/context/ThemeContext';
 import {
   getCategories,
@@ -144,6 +145,19 @@ export default function BudgetScreen() {
             <ProgressBar progress={overallProgress} variant="auto" size="md" showPercentage />
           </KodaCard>
         )}
+
+        {/* Linked Bank Accounts */}
+        <KodaCard className="mb-4">
+          <Text className="font-nunito-bold text-surface-800 dark:text-white text-sm mb-2">
+            Linked Bank Accounts
+          </Text>
+          <BrankasConnectButton 
+            onAccountConnected={async (statementId) => {
+              console.log('Account connected! Statement ID:', statementId);
+              // fetch accounts logic goes here, or in the component itself
+            }} 
+          />
+        </KodaCard>
 
         {/* Budget List */}
         {budgets.map((budget) => {

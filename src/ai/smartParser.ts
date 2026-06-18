@@ -14,6 +14,9 @@ export interface ParsedTransaction {
   description: string | null;
   confidence: number; // 0 to 1
   source: 'smart_parser' | 'llm';
+  isRecurring?: boolean;
+  frequency?: 'weekly' | 'monthly';
+  nextDate?: string;
 }
 
 // ── Amount Extraction ─────────────────────────────────────────────
@@ -198,6 +201,25 @@ export function parseTransaction(input: string): ParsedTransaction {
   // Step 4: Extract description
   const description = extractDescription(text, amount);
 
+  // Step 4.5: Detect recurring and dates
+  let isRecurring = false;
+  let frequency: 'weekly' | 'monthly' | undefined = undefined;
+  let nextDate: string | undefined = undefined;
+
+  if (/\b(recurring|every|monthly|weekly|regular)\b/i.test(text)) {
+    isRecurring = true;
+    if (/\b(weekly|every week|every friday|every monday|every tuesday|every wednesday|every thursday|every saturday|every sunday)\b/i.test(text)) {
+      frequency = 'weekly';
+    } else {
+      frequency = 'monthly';
+    }
+  }
+
+  const dateMatch = text.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
+  if (dateMatch) {
+    nextDate = dateMatch[1];
+  }
+
   // Step 5: Calculate confidence
   let confidence = 0;
   if (amount) confidence += 0.4;
@@ -217,6 +239,8 @@ export function parseTransaction(input: string): ParsedTransaction {
     description,
     confidence: Math.round(confidence * 100) / 100,
     source: 'smart_parser',
+    ...(isRecurring && { isRecurring, frequency }),
+    ...(nextDate && { nextDate }),
   };
 }
 

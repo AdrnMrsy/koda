@@ -237,6 +237,13 @@ export interface RecurringTransactionWithCategory extends RecurringTransaction {
   category_icon: string | null;
 }
 
+export function getLocalISODate(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // ── Query Helpers ─────────────────────────────────────────────────
 
 export async function getCategories(type?: 'income' | 'expense'): Promise<Category[]> {
@@ -330,7 +337,7 @@ export async function deleteRecurringTransaction(id: number): Promise<void> {
 
 export async function processRecurringTransactions(): Promise<number> {
   const db = await getDatabase();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalISODate();
   
   const dueTransactions = await db.getAllAsync<RecurringTransaction>(
     'SELECT * FROM recurring_transactions WHERE next_date <= ?',
@@ -354,7 +361,7 @@ export async function processRecurringTransactions(): Promise<number> {
     } else {
       d.setDate(d.getDate() + 7);
     }
-    const newNextDate = d.toISOString().split('T')[0];
+    const newNextDate = getLocalISODate(d);
     
     await db.runAsync(
       'UPDATE recurring_transactions SET next_date = ? WHERE id = ?',
@@ -368,7 +375,7 @@ export async function processRecurringTransactions(): Promise<number> {
 
 export async function getTodayTransactions(): Promise<TransactionWithCategory[]> {
   const db = await getDatabase();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalISODate();
   return db.getAllAsync<TransactionWithCategory>(
     `SELECT t.*, c.name as category_name, c.icon as category_icon
      FROM transactions t
@@ -492,13 +499,13 @@ export function getXPForCurrentLevel(level: number): number {
 export async function updateStreak(): Promise<void> {
   const db = await getDatabase();
   const stats = await getUserStats();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalISODate();
 
   if (stats.last_active === today) return; // Already updated today
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = getLocalISODate(yesterday);
 
   if (stats.last_active === yesterdayStr) {
     // Continue streak
@@ -531,7 +538,7 @@ export async function updateStreak(): Promise<void> {
 
 async function updateDailyGoal(): Promise<void> {
   const db = await getDatabase();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalISODate();
 
   const goal = await db.getFirstAsync<DailyGoal>(
     'SELECT * FROM daily_goals WHERE date = ?',
@@ -559,7 +566,7 @@ async function updateDailyGoal(): Promise<void> {
 
 export async function getDailyGoal(): Promise<DailyGoal | null> {
   const db = await getDatabase();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalISODate();
   return db.getFirstAsync<DailyGoal>(
     'SELECT * FROM daily_goals WHERE date = ?',
     [today]
@@ -633,8 +640,8 @@ async function checkAchievements(): Promise<void> {
 export async function getMonthlyTotals(): Promise<{ income: number; expense: number }> {
   const db = await getDatabase();
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const firstDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+  const lastDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
   const income = await db.getFirstAsync<{ total: number | null }>(
     `SELECT SUM(amount) as total FROM transactions WHERE type = 'income' AND date >= ? AND date <= ?`,
@@ -678,8 +685,8 @@ export async function getBudgets(monthYear?: string): Promise<BudgetWithProgress
   const db = await getDatabase();
   const my = monthYear || getCurrentMonthYear();
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const firstDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+  const lastDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
   const budgets = await db.getAllAsync<Budget & { category_name: string; category_icon: string | null }>(
     `SELECT b.*, c.name as category_name, c.icon as category_icon
@@ -756,7 +763,7 @@ export async function getWeeklySpending(): Promise<DailySpending[]> {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalISODate(d);
     const row = await db.getFirstAsync<{ total: number | null }>(
       `SELECT SUM(amount) as total FROM transactions WHERE type = 'expense' AND date = ?`,
       [dateStr]
@@ -771,11 +778,45 @@ export async function getWeeklySpending(): Promise<DailySpending[]> {
   return days;
 }
 
+export interface WeeklySpendingData {
+  label: string;
+  amount: number;
+}
+
+export async function getFourWeekSpending(): Promise<WeeklySpendingData[]> {
+  const db = await getDatabase();
+  const weeks: WeeklySpendingData[] = [];
+  
+  for (let i = 3; i >= 0; i--) {
+    const end = new Date();
+    end.setDate(end.getDate() - (i * 7));
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    
+    const startStr = getLocalISODate(start);
+    const endStr = getLocalISODate(end);
+
+    const row = await db.getFirstAsync<{ total: number | null }>(
+      `SELECT SUM(amount) as total FROM transactions WHERE type = 'expense' AND date >= ? AND date <= ?`,
+      [startStr, endStr]
+    );
+
+    weeks.push({
+      label: `W${4 - i}`,
+      amount: row?.total || 0,
+    });
+  }
+
+  return weeks;
+}
+
 export interface CategorySpending {
   name: string;
   icon: string;
   total: number;
   color: string;
+  previousTotal?: number;
+  percentageChange?: number;
 }
 
 const CATEGORY_COLORS = [
@@ -786,11 +827,14 @@ const CATEGORY_COLORS = [
 export async function getCategorySpending(): Promise<CategorySpending[]> {
   const db = await getDatabase();
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const firstDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+  const lastDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
-  const rows = await db.getAllAsync<{ category_name: string; category_icon: string | null; total: number }>(
-    `SELECT c.name as category_name, c.icon as category_icon, SUM(t.amount) as total
+  const prevMonthFirstDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const prevMonthLastDay = getLocalISODate(new Date(now.getFullYear(), now.getMonth(), 0));
+
+  const rows = await db.getAllAsync<{ category_id: number; category_name: string; category_icon: string | null; total: number }>(
+    `SELECT c.id as category_id, c.name as category_name, c.icon as category_icon, SUM(t.amount) as total
      FROM transactions t
      JOIN categories c ON t.category_id = c.id
      WHERE t.type = 'expense' AND t.date >= ? AND t.date <= ?
@@ -799,10 +843,35 @@ export async function getCategorySpending(): Promise<CategorySpending[]> {
     [firstDay, lastDay]
   );
 
-  return rows.map((row, index) => ({
-    name: row.category_name,
-    icon: row.category_icon || '📦',
-    total: row.total,
-    color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
-  }));
+  const prevMonthRows = await db.getAllAsync<{ category_id: number; total: number }>(
+    `SELECT t.category_id, SUM(t.amount) as total
+     FROM transactions t
+     WHERE t.type = 'expense' AND t.date >= ? AND t.date <= ?
+     GROUP BY t.category_id`,
+    [prevMonthFirstDay, prevMonthLastDay]
+  );
+
+  const prevMonthMap = new Map<number, number>();
+  for (const row of prevMonthRows) {
+    prevMonthMap.set(row.category_id, row.total);
+  }
+
+  return rows.map((row, index) => {
+    const prevTotal = prevMonthMap.get(row.category_id) || 0;
+    let percentageChange = 0;
+    if (prevTotal > 0) {
+      percentageChange = ((row.total - prevTotal) / prevTotal) * 100;
+    } else if (row.total > 0) {
+      percentageChange = 100;
+    }
+
+    return {
+      name: row.category_name,
+      icon: row.category_icon || '📦',
+      total: row.total,
+      color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+      previousTotal: prevTotal,
+      percentageChange,
+    };
+  });
 }

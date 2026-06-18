@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
@@ -17,9 +17,16 @@ import { useColorScheme } from 'nativewind';
 import '../global.css';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { PrivacyOverlay } from '../components/PrivacyOverlay';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { cssInterop } from 'nativewind';
+import Animated from 'react-native-reanimated';
+
+cssInterop(SafeAreaView, { className: 'style' });
+cssInterop(Animated.View, { className: 'style' });
 import { LockScreen } from '../components/LockScreen';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { getDatabase } from '@/db/database';
 
 // Suppress Reanimated strict mode warnings (caused by NativeWind internals)
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
@@ -68,6 +75,7 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  const [dbInitialized, setDbInitialized] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     Nunito_400Regular,
     Nunito_500Medium,
@@ -78,12 +86,25 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    async function initDB() {
+      try {
+        await getDatabase();
+      } catch (e) {
+        console.error('Failed to initialize database', e);
+      } finally {
+        setDbInitialized(true);
+      }
+    }
+    initDB();
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && dbInitialized) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, dbInitialized]);
 
-  if (!fontsLoaded && !fontError) {
+  if ((!fontsLoaded && !fontError) || !dbInitialized) {
     return (
       <View className="flex-1 items-center justify-center bg-koda-green">
         <ActivityIndicator size="large" color="#FFFFFF" />
